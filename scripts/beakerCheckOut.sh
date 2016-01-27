@@ -297,6 +297,7 @@ echo $JOB_HOSTNAME > hostname
 
 DISTRO=`xmlstarlet sel -t --value-of "//recipe/@distro" job-result`
 echo $DISTRO
+echo $DISTRO > distro
 
 TASKS=$(echo $TASKS | sed -e s/--task=//g)
 for TASK in $TASKS; do
