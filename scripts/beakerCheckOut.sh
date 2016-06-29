@@ -17,7 +17,7 @@
 function usage()
 {
   echo "This script will reserve a beaker box using bkr workflow-simple."
-  echo 
+  echo
   echo "Available options are:"
   echo "--help                                     Prints this message and then exits"
   echo "--timeout=TIMEOUT                          The timeout in minutes to wait for a beaker box (default: 180)"
@@ -25,13 +25,11 @@ function usage()
   echo "--recipe_option=RECIPE_OPTION              Adds RECIPE_OPTION to the <recipe> section"
   echo "--ks_meta=KS_META                          Adds KS_META to the kickstart metadata"
   echo "--debugxml                                 Preforms a dryrun and prints out the job xml"
-  echo 
+  echo
   echo "The following options are avalable to bkr workflow-simple:"
   echo "--username=USERNAME                        specify user"
   echo "--password=PASSWORD                        specify password"
   echo "--prettyxml                                print the xml in pretty format"
-  echo "--debug                                    print the jobxml that it would submit"
-  echo "--dryrun                                   Don't submit job to scheduler"
   echo "--arch=ARCH                                Include this Arch in job"
   echo "--distro=DISTRO                            Use this Distro for job"
   echo "--family=FAMILY                            Pick latest distro of this family for job"
@@ -58,7 +56,7 @@ function usage()
   echo "--priority=PRIORITY                        Set the priority to this (Low,Medium,Normal,High,Urgent) (optional)"
   echo "--kernel_options=KERNEL_OPTIONS            Boot arguments to supply (optional)"
   echo "--kernel_options_post=KERNEL_OPTIONS_POST  Boot arguments to supply post install (optional)"
-  echo "--product=PRODUCT                          This should be a unique identifierf or a product"   
+  echo "--product=PRODUCT                          This should be a unique identifierf or a product"
   echo "--clients=CLIENTS                          Specify how many client hosts to be involved in multihost test"
   echo "--servers=SERVERS                          Specify how many server hosts to be involved in multihost test"
   echo "--ignoreProblems                           Ignore beaker provision warnings/failures [ ignore fail/warn result when status != (cancelled || aborted) ]"
@@ -78,7 +76,7 @@ DEBUGXML=false
 TOTAL_HOSTS=0
 IGNORE_PROBLEMS=false
 
-for i in $*
+for i in "$@"
   do
   case $i in
       --help)
@@ -90,7 +88,7 @@ for i in $*
          ;;
       --timeout=*)
          TIMEOUT=$(echo $i | sed -e s/--timeout=//g)
-         ;; 
+         ;;
       --username=*)
          echo "Setting Arg: $i"
          USERNAME=$i
@@ -165,7 +163,7 @@ fi
 bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS --dryrun --debug --prettyxml > bkrjob.xml
 
 ## adding host requires so we don't screw over the kernel team
-sed -i -e '/<hostRequires>/{n;d}' bkrjob.xml 
+sed -i -e '/<hostRequires>/{n;d}' bkrjob.xml
 #sed -i -e 's/<hostRequires>/<hostRequires> <and> <cpu_count op="\&gt;=" value="1"\/> <\/and> <system_type value="Machine"\/>/g' bkrjob.xml
 if [[ $OTHERARGS == *--keyvalue* ]] || [[ $OTHERARGS == *--machine* ]]; then
   sed -i -e 's/<hostRequires>/<hostRequires> <and> <system_type value="Machine"\/> <cpu_count op="\&gt;=" value="1"\/>/g' bkrjob.xml
@@ -183,7 +181,7 @@ else
     sed -i -e s/"<\/distroRequires>"/"<\/distroRequires> <packages> $(echo $KSPKGS) <\/packages>"/g bkrjob.xml
   fi
   if [[ -n $KSMETA ]]; then
-    sed -i -e s/"\(ks_meta=\"[method=]*[a-zA-Z]*\)"/"\1 $(echo $KSMETA)"/g bkrjob.xml 
+    sed -i -e s/"\(ks_meta=\"[method=]*[a-zA-Z]*\)"/"\1 $(echo $KSMETA)"/g bkrjob.xml
   fi
   if [[ -n $ROPTS ]]; then
     sed -i -e s/"<recipe "/"<recipe $(echo $ROPTS) "/g bkrjob.xml
@@ -207,7 +205,7 @@ echo "===================== JOB DETAILS ================"
 JOB=`cat job | cut -d \' -f 2`
 
 echo "===================== JOB ID ================"
-echo "${JOB} - https://beaker.engineering.redhat.com/jobs/${JOB:2}" 
+echo "${JOB} - https://beaker.engineering.redhat.com/jobs/${JOB:2}"
 echo "===================== JOB ID ================"
 
 # had a instance where beaker returned 'bkr.server.bexceptions.BX:u' but the script just continued, trying to prevent that in the future - DJ-110415
@@ -253,12 +251,12 @@ while [ $TIME -lt $TIMEOUT ]; do
     else
       echo "Job FAILED!"
       exit 1
-    fi    
+    fi
   elif [[ "$PREV_STATUS" == "$PROVISION_STATUS" ]]; then
     echo -n "."
     TIME=$(expr $TIME + 1)
     sleep 60
-  else 
+  else
    echo
    echo "Provision Status: $PROVISION_STATUS"
    echo "Provision Result: $PROVISION_RESULT"
@@ -328,14 +326,14 @@ for TASK in $TASKS; do
         echo "Job FAILED!"
         echo "Task Status: $TASK_STATUS"
         echo "Task Result: $TASK_RESULT"
-        bkr job-cancel $JOB $USERNAME $PASSWORD 	
+        bkr job-cancel $JOB $USERNAME $PASSWORD
         exit 1
         break
       fi
     elif [[ "$PREV_STATUS" == "$TASK_STATUS" ]]; then
       echo -n "."
       sleep 60
-    else 
+    else
       echo
       echo "Task Status: $TASK_STATUS"
       echo "Task Result: $TASK_RESULT"
