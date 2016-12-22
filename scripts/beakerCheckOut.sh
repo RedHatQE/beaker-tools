@@ -16,50 +16,21 @@
 
 function usage()
 {
-  echo "This script will reserve a beaker box using bkr workflow-simple."
-  echo
-  echo "Available options are:"
-  echo "--help                                     Prints this message and then exits"
-  echo "--timeout=TIMEOUT                          The timeout in minutes to wait for a beaker box (default: 180)"
-  echo "--kspackage=PACKAGE or @GROUP or -@GROUP   Package or group to include/exclude during the kickstart"
-  echo "--recipe_option=RECIPE_OPTION              Adds RECIPE_OPTION to the <recipe> section"
-  echo "--ks_meta=KS_META                          Adds KS_META to the kickstart metadata"
-  echo "--debugxml                                 Preforms a dryrun and prints out the job xml"
-  echo
-  echo "The following options are avalable to bkr workflow-simple:"
-  echo "--username=USERNAME                        specify user"
-  echo "--password=PASSWORD                        specify password"
-  echo "--prettyxml                                print the xml in pretty format"
-  echo "--arch=ARCH                                Include this Arch in job"
-  echo "--distro=DISTRO                            Use this Distro for job"
-  echo "--family=FAMILY                            Pick latest distro of this family for job"
-  echo "--variant=VARIANT                          Pick distro with this variant for job"
-  echo "--machine=MACHINE                          Require this machine for job"
-  echo "--package=PACKAGE                          Include tests for Package in job"
-  echo "--tag=TAG                                  Pick latest distro matching this tag for job"
-  echo "--retention_tag=RETENTION_TAG              Specify data retention policy for this job, defaults to Scratch"
-  echo "--repo=REPO                                Include this repo in job"
-  echo "--task=TASK                                Include this task in job"
-  echo "--taskparam=TASKPARAM                      Set task params 'name=value'"
-  echo "--type=TYPE                                Include tasks of this type in job"
-  echo "--systype=SYSTYPE                          Specify the System Type (Machine, Laptop, etc..)"
-  echo "--keyvalue=KEYVALUE                        Specify a system that matches this key/value Example: NETWORK=e1000"
-  echo "--whiteboard=WHITEBOARD                    Set the whiteboard for this job"
-  echo "--wait                                     wait on job completion"
-  echo "--nowait                                   Do not wait on job completion [Default]"
-  echo "--clients=CLIENTS                          Specify how many client hosts to be involved in multihost test"
-  echo "--servers=SERVERS                          Specify how many server hosts to be involved in multihost test"
-  echo "--install=INSTALL                          Specify Package to install, this will add /distribution/pkginstall."
-  echo "--cc=CC                                    Specify additional email addresses to notify"
-  echo "--dump                                     Turn on ndnc/kdump. (which one depends on the family)"
-  echo "--method=METHOD                            Installation source method (nfs/http) (optional)"
-  echo "--priority=PRIORITY                        Set the priority to this (Low,Medium,Normal,High,Urgent) (optional)"
-  echo "--kernel_options=KERNEL_OPTIONS            Boot arguments to supply (optional)"
-  echo "--kernel_options_post=KERNEL_OPTIONS_POST  Boot arguments to supply post install (optional)"
-  echo "--product=PRODUCT                          This should be a unique identifierf or a product"
-  echo "--clients=CLIENTS                          Specify how many client hosts to be involved in multihost test"
-  echo "--servers=SERVERS                          Specify how many server hosts to be involved in multihost test"
-  echo "--ignoreProblems                           Ignore beaker provision warnings/failures [ ignore fail/warn result when status != (cancelled || aborted) ]"
+cat << USAGETEXT
+"This script will reserve a beaker box using bkr workflow-simple.
+
+Available options are:
+  --help                                     Prints this message and then exits
+  --timeout=TIMEOUT                          The timeout in minutes to wait for a beaker box (default: 180)
+  --kspackage=PACKAGE or @GROUP or -@GROUP   Package or group to include/exclude during the kickstart
+  --recipe_option=RECIPE_OPTION              Adds RECIPE_OPTION to the <recipe> section
+  --ks_meta=KS_META                          Adds KS_META to the kickstart metadata
+  --debugxml                                 Preforms a dryrun and prints out the job xml
+
+The following options are avalable to bkr workflow-simple:"
+$(bkr workflow-simple --help | tail -n +3 | grep -v "\-\-help")
+
+USAGETEXT
 }
 
 TIMEOUT="180"
@@ -229,7 +200,7 @@ echo "Timeout: $TIMEOUT minutes"
 PREV_STATUS="Hasn't Started Yet."
 TIME="0"
 while [ $TIME -lt $TIMEOUT ]; do
-  bkr job-results $JOB $USERNAME $PASSWORD > job-result
+  bkr job-results $JOB $USERNAME $PASSWORD > job-result || (echo "Could not create job-result." && exit 1)
   PROVISION_STATUS=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/install']/@status" job-result)
   PROVISION_RESULT=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/install']/@result" job-result)
   if [[ $PROVISION_RESULT == $PASS_STRING ]]; then
