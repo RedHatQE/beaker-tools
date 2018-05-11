@@ -132,7 +132,7 @@ if [[ -z $USERNAME ]] || [[ -z $PASSWORD ]] || [[ -z $ARCH ]] || [[ -z $FAMILY ]
 fi
 
 if [[ "$ARCH" == "--arch=aarch64" ]]; then
-  bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS --hostrequire="<hostname op='like' value='%hp-moonshot-03-%.lab.eng.rdu.redhat.com'/>" --dryrun --debug --prettyxml > bkrjob.xml
+  bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS --hostrequire="<hostname op='like' value='%hp-moonshot-%'/>" --dryrun --debug --prettyxml > bkrjob.xml
 else
   bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS --dryrun --debug --prettyxml > bkrjob.xml
 fi
