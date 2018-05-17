@@ -44,6 +44,7 @@ KSMETA=""
 KSPKGS=""
 OTHERARGS=""
 DEBUGXML=false
+IGNORE_AVC_ERROR=false
 TOTAL_HOSTS=0
 IGNORE_PROBLEMS=false
 
@@ -105,6 +106,9 @@ for i in "$@"
       --ignoreProblems)
          IGNORE_PROBLEMS=true
         ;;
+      --ignore_avc_error)
+         IGNORE_AVC_ERROR=true
+         ;;
       *)
         echo "Adding $i to other bkr workflow-simple args."
         OTHERARGS=${OTHERARGS}" "$i
@@ -137,6 +141,13 @@ else
   bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS --dryrun --debug --prettyxml > bkrjob.xml
 fi
 
+## turning off selinux during install
+##  adds --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
+if [[ $IGNORE_AVC_ERROR == true ]]; then
+  xmlstarlet ed -L -s "/job/recipeSet/recipe/task[@name='/distribution/install']" -t elem -n params -v foobar bkrjob.xml
+  sed -i -e 's/foobar/<param name="AVC_ERROR" value="+no_avc_check"\/>/g' bkrjob.xml
+fi
+
 ## adding host requires so we don't screw over the kernel team
 sed -i -e '/<hostRequires>/{n;d}' bkrjob.xml
 #sed -i -e 's/<hostRequires>/<hostRequires> <and> <cpu_count op="\&gt;=" value="1"\/> <\/and> <system_type value="Machine"\/>/g' bkrjob.xml
@@ -147,7 +158,7 @@ else
 fi
 
 if [[ -z $KSPKGS ]] && [[ -z $ROPTS ]] && [[ -z $KSMETA ]]; then
-  cat bkrjob.xml
+  xmlstarlet fo bkrjob.xml
   if [[ $DEBUGXML == false ]]; then
     bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS > job || (echo "bkr workflow-simple $USERNAME --password=***** $ARCH $FAMILY $TASK --task=/distribution/reservesys $OTHERARGS " && cat job && rm bkrjob.xml && exit 1)
   fi
@@ -161,7 +172,7 @@ else
   if [[ -n $ROPTS ]]; then
     sed -i -e s/"<recipe "/"<recipe $(echo $ROPTS) "/g bkrjob.xml
   fi
-  cat bkrjob.xml
+  xmlstarlet fo bkrjob.xml
   if [[ $DEBUGXML == false ]]; then
     bkr job-submit $USERNAME $PASSWORD bkrjob.xml > job || (rm bkrjob.xml && exit 1)
   fi
