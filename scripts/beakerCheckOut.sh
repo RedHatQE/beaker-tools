@@ -135,26 +135,13 @@ if [[ -z $USERNAME ]] || [[ -z $PASSWORD ]] || [[ -z $ARCH ]] || [[ -z $FAMILY ]
   exit 1
 fi
 
-if [[ "$ARCH" == "--arch=aarch64" ]]; then
-  bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS --hostrequire="<hostname op='like' value='%hp-moonshot-%'/>" --dryrun --debug --prettyxml > bkrjob.xml
-else
-  bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS --dryrun --debug --prettyxml > bkrjob.xml
-fi
+bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS --dryrun --debug --prettyxml > bkrjob.xml
 
 ## turning off selinux during install
 ##  adds --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
 if [[ $IGNORE_AVC_ERROR == true ]]; then
   xmlstarlet ed -L -s "/job/recipeSet/recipe/task[@name='/distribution/install']" -t elem -n params -v foobar bkrjob.xml
   sed -i -e 's/foobar/<param name="AVC_ERROR" value="+no_avc_check"\/>/g' bkrjob.xml
-fi
-
-## adding host requires so we don't screw over the kernel team
-sed -i -e '/<hostRequires>/{n;d}' bkrjob.xml
-#sed -i -e 's/<hostRequires>/<hostRequires> <and> <cpu_count op="\&gt;=" value="1"\/> <\/and> <system_type value="Machine"\/>/g' bkrjob.xml
-if [[ $OTHERARGS == *--keyvalue* ]] || [[ $OTHERARGS == *--machine* ]] || [[ "$ARCH" == "--arch=aarch64" ]]; then
-  sed -i -e 's/<hostRequires>/<hostRequires> <and> <system_type value="Machine"\/> <cpu_count op="\&gt;=" value="1"\/>/g' bkrjob.xml
-else
-  sed -i -e 's/<hostRequires>/<hostRequires> <and> <system_type value="Machine"\/> <cpu_count op="\&gt;=" value="1"\/> <\/and>/g' bkrjob.xml
 fi
 
 if [[ -z $KSPKGS ]] && [[ -z $ROPTS ]] && [[ -z $KSMETA ]]; then
