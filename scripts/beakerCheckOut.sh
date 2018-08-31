@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2010 Red Hat, Inc.
+# Copyright (c) 2018 Red Hat, Inc.
 #
 # This software is licensed to you under the GNU General Public License,
 # version 2 (GPLv2). There is NO WARRANTY for this software, express or
@@ -17,125 +17,108 @@
 function usage()
 {
 cat << USAGETEXT
-"This script will reserve a beaker box using bkr workflow-simple.
+This script will reserve a beaker box using bkr workflow-simple.
 
 Available options are:
+  --debugxml                                 Preforms a dryrun and prints out the job xml
   --help                                     Prints this message and then exits
-  --timeout=TIMEOUT                          The timeout in minutes to wait for a beaker box (default: 180)
+  --ignore-avc-error                         Ignores SELinux AVC errors
   --kspackage=PACKAGE or @GROUP or -@GROUP   Package or group to include/exclude during the kickstart
   --recipe_option=RECIPE_OPTION              Adds RECIPE_OPTION to the <recipe> section
-  --ks_meta=KS_META                          Adds KS_META to the kickstart metadata
-  --debugxml                                 Preforms a dryrun and prints out the job xml
+  --timeout=TIMEOUT                          The timeout in minutes to wait for a beaker box (default: 180)
 
-The following options are avalable to bkr workflow-simple:"
+The following options are avalable to bkr workflow-simple:
 $(bkr workflow-simple --help | tail -n +3 | grep -v "\-\-help")
-
 USAGETEXT
 }
 
-TIMEOUT="180"
-USERNAME=""
-PASSWORD=""
-ARCH=""
-FAMILY=""
-TASKS=""
-ROPTS=""
-KSMETA=""
-KSPKGS=""
-OTHERARGS=""
 DEBUGXML=false
 IGNORE_AVC_ERROR=false
-TOTAL_HOSTS=0
 IGNORE_PROBLEMS=false
+KSPKGS=""
+PASSWORD=""
+ROPTS=""
+TASKS=""
+TIMEOUT="180"
+TOTAL_HOSTS=0
+USERNAME=""
 
-for i in "$@"
-  do
-  case $i in
+
+for arg do
+  shift
+  case $arg in
       --help)
-         usage
-         exit 0
-         ;;
+        usage
+        exit 0
+        ;;
       --debugxml)
-         DEBUGXML=true
-         ;;
+        DEBUGXML=true
+        ;;
       --timeout=*)
-         TIMEOUT=$(echo $i | sed -e s/--timeout=//g)
-         ;;
+        TIMEOUT=$(echo $arg | sed -e s/--timeout=//g)
+        ;;
       --username=*)
-         echo "Setting Arg: $i"
-         USERNAME=$i
-         ;;
+        USERNAME=$arg
+        set -- "$@" "$arg"
+        ;;
       --password=*)
-         echo "Setting Password."
-         PASSWORD=$i
-         ;;
-      --arch=*)
-         echo "Setting Arg: $i"
-         ARCH=$i
-         ;;
-      --family=*)
-        echo "Setting Arg: $i"
-        FAMILY=$i
-         ;;
+        PASSWORD=$arg
+        set -- "$@" "$arg"
+        ;;
       --task=*)
-        echo "Adding arg to tasks: $i"
-        TASKS=${TASKS}" "$i
-        ;;
-      --recipe_option=*)
-        echo "Adding arg to Recipe Options: $(echo $i | sed -e s/--recipe_option=//g)"
-        ROPTS=${ROPTS}" "$(echo $i |sed -e s/--recipe_option=//g)
-        ;;
-      --ks_meta=*)
-        echo "Adding arg to ks_meta: $(echo $i | sed -e s/--ks_meta=//g)"
-        KSMETA=${KSMETA}" "$(echo $i |sed -e s/--ks_meta=//g)
-        ;;
-      --kspackage=*)
-        echo "Adding arg to Kickstart Packages: $(echo $i | sed -e s/--kspackage=//g)"
-        KSPKGS=${KSPKGS}" <package name=\\\"$(echo $i | sed -e s/--kspackage=//g)\\\"\/>"
-        ;;
-      --servers=*)
-        echo "Servers needed: $(echo $i | sed -e s/--servers=//g)"
-        TOTAL_HOSTS=$(($TOTAL_HOSTS + $(echo $i | sed -e s/--servers=//g)  ))
-        OTHERARGS=${OTHERARGS}" "$i
-        ;;
-      --clients=*)
-        echo "Clients needed: $(echo $i | sed -e s/--clients=//g)"
-        TOTAL_HOSTS=$(($TOTAL_HOSTS + $(echo $i | sed -e s/--clients=//g) ))
-        OTHERARGS=${OTHERARGS}" "$i
+        TASKS="${TASKS} $(echo $arg | sed -e s/--task=//g)"
+        set -- "$@" "$arg"
         ;;
       --ignoreProblems)
-         IGNORE_PROBLEMS=true
+        IGNORE_PROBLEMS=true
         ;;
       --ignore_avc_error)
-         IGNORE_AVC_ERROR=true
-         ;;
+        IGNORE_AVC_ERROR=true
+        ;;
+      --recipe_option=*)
+        echo "Adding arg to Recipe Options: $(echo $arg | sed -e s/--recipe_option=//g)"
+        ROPTS="${ROPTS} $(echo $arg |sed -e s/--recipe_option=//g)"
+        ;;
+      --kspackage=*)
+        echo "Adding arg to Kickstart Packages: $(echo $arg | sed -e s/--kspackage=//g)"
+        KSPKGS="${KSPKGS} <package name=\\\"$(echo $arg | sed -e s/--kspackage=//g)\\\"\/>"
+        ;;
+      --servers=*)
+        echo "Servers needed: $(echo $arg | sed -e s/--servers=//g)"
+        TOTAL_HOSTS=$(($TOTAL_HOSTS + $(echo $arg | sed -e s/--servers=//g)  ))
+        set -- "$@" "$arg"
+        ;;
+      --clients=*)
+        echo "Clients needed: $(echo $arg | sed -e s/--clients=//g)"
+        TOTAL_HOSTS=$(($TOTAL_HOSTS + $(echo $arg | sed -e s/--clients=//g) ))
+        set -- "$@" "$arg"
+        ;;
       *)
-        echo "Adding $i to other bkr workflow-simple args."
-        OTHERARGS=${OTHERARGS}" "$i
+        set -- "$@" "$arg"
         ;;
   esac
 done
 
-#debug stuff
-#echo "args: $@"
-#echo "USERNAME: $USERNAME"
-#echo "PASSWORD: $PASSWORD"
-#echo "ARCH: $ARCH"
-#echo "FAMILY: $FAMILY"
-#echo "TASKS: $TASKS"
-#echo "KSPKGS: $KSPKGS"
-#echo "OTHERARGS: $OTHERARGS"
-#echo "TIMEOUT: $TIMEOUT"
-#echo "TOTAL_HOSTS: $TOTAL_HOSTS"
+# replaces --task=/distribution/reservesys
+set -- "$@" "--reserve"
 
-if [[ -z $USERNAME ]] || [[ -z $PASSWORD ]] || [[ -z $ARCH ]] || [[ -z $FAMILY ]] || [[ -z $TASKS ]]  ; then
-  echo "bkr workflow-simple requires that a username, password, arch, family, and task be given."
-  echo
-  usage
-  exit 1
+#debug stuff
+if [[ $DEBUGXML == true ]]; then
+cat << DEBUG
+args: $@
+IGNORE_AVC_ERROR: $IGNORE_AVC_ERROR
+IGNORE_PROBLEMS: $IGNORE_PROBLEMS
+KSPKGS: $KSPKGS
+PASSWORD: $PASSWORD
+ROPTS: $ROPTS
+TASKS: $TASKS
+TIMEOUT: $TIMEOUT
+TOTAL_HOSTS: $TOTAL_HOSTS
+USERNAME: $USERNAME
+DEBUG
 fi
 
-bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS --dryrun --debug --prettyxml > bkrjob.xml
+bkr workflow-simple "$@" --dryrun --debug --prettyxml > bkrjob.xml
 
 ## turning off selinux during install
 ##  adds --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
@@ -144,17 +127,14 @@ if [[ $IGNORE_AVC_ERROR == true ]]; then
   sed -i -e 's/foobar/<param name="AVC_ERROR" value="+no_avc_check"\/>/g' bkrjob.xml
 fi
 
-if [[ -z $KSPKGS ]] && [[ -z $ROPTS ]] && [[ -z $KSMETA ]]; then
+if [[ -z $KSPKGS ]] && [[ -z $ROPTS ]]; then
   xmlstarlet fo bkrjob.xml
   if [[ $DEBUGXML == false ]]; then
-    bkr workflow-simple $USERNAME $PASSWORD $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS > job || (echo "bkr workflow-simple $USERNAME --password=***** $ARCH $FAMILY $TASK --task=/distribution/reservesys $OTHERARGS " && cat job && rm bkrjob.xml && exit 1)
+    bkr workflow-simple "$@" > job || (echo "bkr workflow-simple $@" && cat job && rm bkrjob.xml && exit 1)
   fi
 else
   if [[ -n $KSPKGS ]]; then
     sed -i -e s/"<\/distroRequires>"/"<\/distroRequires> <packages> $(echo $KSPKGS) <\/packages>"/g bkrjob.xml
-  fi
-  if [[ -n $KSMETA ]]; then
-    sed -i -e s/"\(ks_meta=\"[method=]*[a-zA-Z]*\)"/"\1 $(echo $KSMETA)"/g bkrjob.xml
   fi
   if [[ -n $ROPTS ]]; then
     sed -i -e s/"<recipe "/"<recipe $(echo $ROPTS) "/g bkrjob.xml
@@ -172,7 +152,7 @@ if [[ $DEBUGXML == true ]]; then
 fi
 
 echo "===================== JOB DETAILS ================"
-echo "bkr workflow-simple $USERNAME --password=***** $ARCH $FAMILY $TASKS --task=/distribution/reservesys $OTHERARGS"
+echo "bkr workflow-simple $@"
 cat job
 echo "===================== JOB DETAILS ================"
 JOB=`cat job | cut -d \' -f 2`
@@ -270,7 +250,6 @@ DISTRO=`xmlstarlet sel -t --value-of "//recipe/@distro" job-result`
 echo $DISTRO
 echo $DISTRO > distro
 
-TASKS=$(echo $TASKS | sed -e s/--task=//g)
 for TASK in $TASKS; do
   echo "===================== $TASK STATUS ================"
   PREV_STATUS="Hasn't Started Yet."
