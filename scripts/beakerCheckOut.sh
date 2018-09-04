@@ -99,8 +99,9 @@ for arg do
   esac
 done
 
-# replaces --task=/distribution/reservesys
-set -- "$@" "--reserve"
+# ensures these are installed
+set -- "$@" "--task=/distribution/reservesys"
+set -- "$@" "--install=beakerlib"
 
 #debug stuff
 if [[ $DEBUGXML == true ]]; then
