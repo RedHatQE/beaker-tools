@@ -180,8 +180,8 @@ PREV_STATUS="Hasn't Started Yet."
 TIME="0"
 while [ $TIME -lt $TIMEOUT ]; do
   bkr job-results $JOB $USERNAME $PASSWORD > job-result || (echo "Could not create job-result." && exit 1)
-  PROVISION_STATUS=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/install']/@status" job-result)
-  PROVISION_RESULT=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/install']/@result" job-result)
+  PROVISION_STATUS=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/check-install']/@status" job-result)
+  PROVISION_RESULT=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/check-install']/@result" job-result)
   if [[ $PROVISION_RESULT == $PASS_STRING ]]; then
     echo
     echo "Job has completed."
