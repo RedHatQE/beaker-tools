@@ -26,6 +26,7 @@ Available options are:
   --kspackage=PACKAGE or @GROUP or -@GROUP   Package or group to include/exclude during the kickstart
   --recipe_option=RECIPE_OPTION              Adds RECIPE_OPTION to the <recipe> section
   --timeout=TIMEOUT                          The timeout in minutes to wait for a beaker box (default: 180)
+  --family=FAMILYNAME                        The distro family name in Beaker
 
 The following options are avalable to bkr workflow-simple:
 $(bkr workflow-simple --help | tail -n +3 | grep -v "\-\-help")
@@ -33,6 +34,7 @@ USAGETEXT
 }
 
 DEBUGXML=false
+FAMILY_NAME=""
 IGNORE_AVC_ERROR=false
 IGNORE_PROBLEMS=false
 KSPKGS=""
@@ -93,6 +95,9 @@ for arg do
         TOTAL_HOSTS=$(($TOTAL_HOSTS + $(echo $arg | sed -e s/--clients=//g) ))
         set -- "$@" "$arg"
         ;;
+      --family=*)
+        FAMILY_NAME=$()
+        ;;
       *)
         set -- "$@" "$arg"
         ;;
@@ -120,6 +125,20 @@ DEBUG
 fi
 
 bkr workflow-simple "$@" --dryrun --debug --prettyxml > bkrjob.xml
+
+# adding correction to find family name from the job xml, required for differences in newer release version job workflows
+if [[ -z $FAMILY ]]; then
+  FAMILY=$(xmlstarlet fo job-result | grep -o -m1 "RedHatEnterpriseLinux[[:digit:]]" bkrjob.xml)
+fi
+
+# set the distribution/install job format based on family
+if [[ "$FAMILY" = "RedHatEnterpriseLinux7" ]]; then
+  DIST_JOB_FMT="install"
+elif [[ "$FAMILY" = "RedHatEnterpriseLinux8" ]]; then
+  DIST_JOB_FMT="check-install"
+elif [[ -z "$FAMILY" ]]; then
+  DIST_JOB_FMT="check-install"
+fi
 
 ## turning off selinux during install
 ##  adds --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
@@ -180,8 +199,9 @@ PREV_STATUS="Hasn't Started Yet."
 TIME="0"
 while [ $TIME -lt $TIMEOUT ]; do
   bkr job-results $JOB $USERNAME $PASSWORD > job-result || (echo "Could not create job-result." && exit 1)
-  PROVISION_STATUS=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/check-install']/@status" job-result)
-  PROVISION_RESULT=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/check-install']/@result" job-result)
+
+  PROVISION_STATUS=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/$DIST_JOB_FMT']/@status" job-result)
+  PROVISION_RESULT=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/$DIST_JOB_FMT']/@result" job-result)
   if [[ $PROVISION_RESULT == $PASS_STRING ]]; then
     echo
     echo "Job has completed."
