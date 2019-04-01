@@ -33,6 +33,7 @@ USAGETEXT
 }
 
 DEBUGXML=false
+FAMILY_NAME=""
 IGNORE_AVC_ERROR=false
 IGNORE_PROBLEMS=false
 KSPKGS=""
@@ -55,7 +56,7 @@ for arg do
         DEBUGXML=true
         ;;
       --timeout=*)
-        TIMEOUT=$(echo $arg | sed -e s/--timeout=//g)
+        TIMEOUT=${arg//--timeout=/}
         ;;
       --username=*)
         USERNAME=$arg
@@ -66,7 +67,7 @@ for arg do
         set -- "$@" "$arg"
         ;;
       --task=*)
-        TASKS="${TASKS} $(echo $arg | sed -e s/--task=//g)"
+        TASKS="${TASKS} ${arg//--task=/}"
         set -- "$@" "$arg"
         ;;
       --ignoreProblems)
@@ -76,21 +77,25 @@ for arg do
         IGNORE_AVC_ERROR=true
         ;;
       --recipe_option=*)
-        echo "Adding arg to Recipe Options: $(echo $arg | sed -e s/--recipe_option=//g)"
-        ROPTS="${ROPTS} $(echo $arg |sed -e s/--recipe_option=//g)"
+        echo "Adding arg to Recipe Options: ${arg//--receipe_option=/}"
+        ROPTS="${ROPTS} ${arg//--receipe_option=/}"
         ;;
       --kspackage=*)
-        echo "Adding arg to Kickstart Packages: $(echo $arg | sed -e s/--kspackage=//g)"
-        KSPKGS="${KSPKGS} <package name=\\\"$(echo $arg | sed -e s/--kspackage=//g)\\\"\/>"
+        echo "Adding arg to Kickstart Packages: ${arg//--kspackage=/}"
+        KSPKGS="${KSPKGS} <package name=\\\"${arg//--kspackage=/}\\\"\/>"
         ;;
       --servers=*)
-        echo "Servers needed: $(echo $arg | sed -e s/--servers=//g)"
-        TOTAL_HOSTS=$(($TOTAL_HOSTS + $(echo $arg | sed -e s/--servers=//g)  ))
+        echo "Servers needed: ${arg//--servers=/}"
+        TOTAL_HOSTS=$((TOTAL_HOSTS + ${arg//--servers=/}  ))
         set -- "$@" "$arg"
         ;;
       --clients=*)
-        echo "Clients needed: $(echo $arg | sed -e s/--clients=//g)"
-        TOTAL_HOSTS=$(($TOTAL_HOSTS + $(echo $arg | sed -e s/--clients=//g) ))
+        echo "Clients needed: ${arg//--clients=/}"
+        TOTAL_HOSTS=$((TOTAL_HOSTS + ${arg//--clients=/} ))
+        set -- "$@" "$arg"
+        ;;
+      --family=*)
+        FAMILY_NAME=${arg//--family=/}
         set -- "$@" "$arg"
         ;;
       *)
@@ -121,10 +126,17 @@ fi
 
 bkr workflow-simple "$@" --dryrun --debug --prettyxml > bkrjob.xml
 
+# set the distribution/install job format based on family
+if [[ "$FAMILY_NAME" = "RedHatEnterpriseLinux8" ]]; then
+  DIST_JOB_FMT="check-install"
+else
+  DIST_JOB_FMT="install"
+fi
+
 ## turning off selinux during install
 ##  adds --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
 if [[ $IGNORE_AVC_ERROR == true ]]; then
-  xmlstarlet ed -L -s "/job/recipeSet/recipe/task[@name='/distribution/install']" -t elem -n params -v foobar bkrjob.xml
+  xmlstarlet ed -L -s "/job/recipeSet/recipe/task[@name='/distribution/$DIST_JOB_FMT']" -t elem -n params -v foobar bkrjob.xml
   sed -i -e 's/foobar/<param name="AVC_ERROR" value="+no_avc_check"\/>/g' bkrjob.xml
 fi
 
@@ -180,8 +192,9 @@ PREV_STATUS="Hasn't Started Yet."
 TIME="0"
 while [ $TIME -lt $TIMEOUT ]; do
   bkr job-results $JOB $USERNAME $PASSWORD > job-result || (echo "Could not create job-result." && exit 1)
-  PROVISION_STATUS=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/check-install']/@status" job-result)
-  PROVISION_RESULT=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/check-install']/@result" job-result)
+
+  PROVISION_STATUS=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/$DIST_JOB_FMT']/@status" job-result)
+  PROVISION_RESULT=$(xmlstarlet sel -t --value-of "//task[@name='/distribution/$DIST_JOB_FMT']/@result" job-result)
   if [[ $PROVISION_RESULT == $PASS_STRING ]]; then
     echo
     echo "Job has completed."
