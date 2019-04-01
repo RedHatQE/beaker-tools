@@ -26,7 +26,6 @@ Available options are:
   --kspackage=PACKAGE or @GROUP or -@GROUP   Package or group to include/exclude during the kickstart
   --recipe_option=RECIPE_OPTION              Adds RECIPE_OPTION to the <recipe> section
   --timeout=TIMEOUT                          The timeout in minutes to wait for a beaker box (default: 180)
-  --family=FAMILYNAME                        The distro family name in Beaker
 
 The following options are avalable to bkr workflow-simple:
 $(bkr workflow-simple --help | tail -n +3 | grep -v "\-\-help")
@@ -57,7 +56,7 @@ for arg do
         DEBUGXML=true
         ;;
       --timeout=*)
-        TIMEOUT=$(echo $arg | sed -e s/--timeout=//g)
+        TIMEOUT=${arg//--timeout=/}
         ;;
       --username=*)
         USERNAME=$arg
@@ -68,7 +67,7 @@ for arg do
         set -- "$@" "$arg"
         ;;
       --task=*)
-        TASKS="${TASKS} $(echo $arg | sed -e s/--task=//g)"
+        TASKS="${TASKS} ${arg//--task=/}"
         set -- "$@" "$arg"
         ;;
       --ignoreProblems)
@@ -78,25 +77,26 @@ for arg do
         IGNORE_AVC_ERROR=true
         ;;
       --recipe_option=*)
-        echo "Adding arg to Recipe Options: $(echo $arg | sed -e s/--recipe_option=//g)"
-        ROPTS="${ROPTS} $(echo $arg |sed -e s/--recipe_option=//g)"
+        echo "Adding arg to Recipe Options: ${arg//--receipe_option=/}"
+        ROPTS="${ROPTS} ${arg//--receipe_option=/}"
         ;;
       --kspackage=*)
-        echo "Adding arg to Kickstart Packages: $(echo $arg | sed -e s/--kspackage=//g)"
-        KSPKGS="${KSPKGS} <package name=\\\"$(echo $arg | sed -e s/--kspackage=//g)\\\"\/>"
+        echo "Adding arg to Kickstart Packages: ${arg//--kspackage=/}"
+        KSPKGS="${KSPKGS} <package name=\\\"${arg//--kspackage=/}\\\"\/>"
         ;;
       --servers=*)
-        echo "Servers needed: $(echo $arg | sed -e s/--servers=//g)"
-        TOTAL_HOSTS=$(($TOTAL_HOSTS + $(echo $arg | sed -e s/--servers=//g)  ))
+        echo "Servers needed: ${arg//--servers=/}"
+        TOTAL_HOSTS=$((TOTAL_HOSTS + ${arg//--servers=/}  ))
         set -- "$@" "$arg"
         ;;
       --clients=*)
-        echo "Clients needed: $(echo $arg | sed -e s/--clients=//g)"
-        TOTAL_HOSTS=$(($TOTAL_HOSTS + $(echo $arg | sed -e s/--clients=//g) ))
+        echo "Clients needed: ${arg//--clients=/}"
+        TOTAL_HOSTS=$((TOTAL_HOSTS + ${arg//--clients=/} ))
         set -- "$@" "$arg"
         ;;
       --family=*)
-        FAMILY_NAME=$()
+        FAMILY_NAME=${arg//--family=/}
+        set -- "$@" "$arg"
         ;;
       *)
         set -- "$@" "$arg"
@@ -126,18 +126,11 @@ fi
 
 bkr workflow-simple "$@" --dryrun --debug --prettyxml > bkrjob.xml
 
-# adding correction to find family name from the job xml, required for differences in newer release version job workflows
-if [[ -z $FAMILY ]]; then
-  FAMILY=$(xmlstarlet fo job-result | grep -o -m1 "RedHatEnterpriseLinux[[:digit:]]" bkrjob.xml)
-fi
-
 # set the distribution/install job format based on family
-if [[ "$FAMILY" = "RedHatEnterpriseLinux7" ]]; then
+if [[ "$FAMILY_NAME" = "RedHatEnterpriseLinux8" ]]; then
+  DIST_JOB_FMT="check-install"
+else
   DIST_JOB_FMT="install"
-elif [[ "$FAMILY" = "RedHatEnterpriseLinux8" ]]; then
-  DIST_JOB_FMT="check-install"
-elif [[ -z "$FAMILY" ]]; then
-  DIST_JOB_FMT="check-install"
 fi
 
 ## turning off selinux during install
