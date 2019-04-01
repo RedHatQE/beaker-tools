@@ -143,7 +143,7 @@ fi
 ## turning off selinux during install
 ##  adds --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
 if [[ $IGNORE_AVC_ERROR == true ]]; then
-  xmlstarlet ed -L -s "/job/recipeSet/recipe/task[@name='/distribution/install']" -t elem -n params -v foobar bkrjob.xml
+  xmlstarlet ed -L -s "/job/recipeSet/recipe/task[@name='/distribution/$DIST_JOB_FMT']" -t elem -n params -v foobar bkrjob.xml
   sed -i -e 's/foobar/<param name="AVC_ERROR" value="+no_avc_check"\/>/g' bkrjob.xml
 fi
 
