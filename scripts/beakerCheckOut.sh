@@ -126,12 +126,13 @@ fi
 
 bkr workflow-simple "$@" --dryrun --debug --prettyxml > bkrjob.xml
 
-# set the distribution/install job format based on family
-if [[ "$FAMILY_NAME" = "RedHatEnterpriseLinux8" ]]; then
-  DIST_JOB_FMT="check-install"
-else
-  DIST_JOB_FMT="install"
-fi
+DIST_JOB_FMT="check-install"
+# # set the distribution/install job format based on family
+# if [[ "$FAMILY_NAME" = "RedHatEnterpriseLinux8" ]]; then
+#   DIST_JOB_FMT="check-install"
+# else
+#   DIST_JOB_FMT="install"
+# fi
 
 ## turning off selinux during install
 ##  adds --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
