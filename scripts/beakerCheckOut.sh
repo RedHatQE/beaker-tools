@@ -94,10 +94,6 @@ for arg do
         TOTAL_HOSTS=$((TOTAL_HOSTS + ${arg//--clients=/} ))
         set -- "$@" "$arg"
         ;;
-      --family=*)
-        FAMILY_NAME=${arg//--family=/}
-        set -- "$@" "$arg"
-        ;;
       *)
         set -- "$@" "$arg"
         ;;
@@ -126,12 +122,8 @@ fi
 
 bkr workflow-simple "$@" --dryrun --debug --prettyxml > bkrjob.xml
 
-# set the distribution/install job format based on family
-if [[ "$FAMILY_NAME" = "RedHatEnterpriseLinux8" ]]; then
-  DIST_JOB_FMT="check-install"
-else
-  DIST_JOB_FMT="install"
-fi
+# all reservations should now be using this job, this requires latest beaker-client
+DIST_JOB_FMT="check-install"
 
 ## turning off selinux during install
 ##  adds --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
