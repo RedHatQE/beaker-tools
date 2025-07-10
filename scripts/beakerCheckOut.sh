@@ -14,9 +14,8 @@
 #
 # written by whayutin@redhat.com & jmolet@redhat.com
 
-function usage()
-{
-cat << USAGETEXT
+function usage() {
+  cat << USAGETEXT
 This script will reserve a beaker box using bkr workflow-simple.
 Note: Do NOT pass --task=/distribution/reservesys as an argument to this script.  It is automatically included.
 
@@ -47,7 +46,7 @@ RESERVETIME="" # the Beaker default is 86400 =24hours
 TOTAL_HOSTS=0
 USERNAME=""
 
-for arg do
+for arg; do
   shift
   case $arg in
       --help)
@@ -91,12 +90,12 @@ for arg do
         ;;
       --servers=*)
         echo "Servers needed: ${arg//--servers=/}"
-        TOTAL_HOSTS=$((TOTAL_HOSTS + ${arg//--servers=/}  ))
+        TOTAL_HOSTS=$((TOTAL_HOSTS + ${arg//--servers=/}))
         set -- "$@" "$arg"
         ;;
       --clients=*)
         echo "Clients needed: ${arg//--clients=/}"
-        TOTAL_HOSTS=$((TOTAL_HOSTS + ${arg//--clients=/} ))
+        TOTAL_HOSTS=$((TOTAL_HOSTS + ${arg//--clients=/}))
         set -- "$@" "$arg"
         ;;
       *)
@@ -111,8 +110,8 @@ set -- "$@" "--install=beakerlib"
 
 # debug stuff
 if [[ $DEBUGXML == true ]]; then
-echo -e "\n==== ARGS ============================================="
-cat << DEBUG
+  echo -e "\n==== ARGS ============================================="
+  cat << DEBUG
 args: $@
 IGNORE_AVC_ERROR: $IGNORE_AVC_ERROR
 IGNORE_PROBLEMS: $IGNORE_PROBLEMS
@@ -160,12 +159,13 @@ fi
 
 # submit bkrjob.xml to beaker
 bkr job-submit $USERNAME $PASSWORD bkrjob.xml > job || (rm bkrjob.xml && exit 1)
-JOB=`cat job | cut -d \' -f 2`
+JOB=$(cat job | cut -d \' -f 2)
 # had a instance where beaker returned 'bkr.server.bexceptions.BX:u' but the script just continued,
 # trying to prevent that in the future - DJ-110415
 # check JOB for a valid number following 'j:'
-if ! [[ ${JOB:2} =~ ^[0-9]+$ ]] ; then
-   echo "error: job (${JOB}) doesn't appear to be valid"; exit 1
+if ! [[ ${JOB:2} =~ ^[0-9]+$ ]]; then
+   echo "error: job (${JOB}) doesn't appear to be valid"
+   exit 1
 fi
 
 echo -e "\n==== JOB DETAILS ======================================"
@@ -182,8 +182,8 @@ TIME="0"
 PREV_STATUS="Hasn't Started Yet."
 PASS_STRING="Pass"
 if [[ $TOTAL_HOSTS > 0 ]]; then
-    MAX=`expr $TOTAL_HOSTS + 1`
-    PASS_STRING=`seq -s "Pass" $MAX | sed 's/[0-9]//g'`
+    MAX=$(expr $TOTAL_HOSTS + 1)
+    PASS_STRING=$(seq -s "Pass" $MAX | sed 's/[0-9]//g')
 fi
 while [ $TIME -lt $TIMEOUT ]; do
   bkr job-results $JOB $USERNAME $PASSWORD > job-result || (echo "Could not create job-result." && exit 1)
@@ -219,14 +219,14 @@ while [ $TIME -lt $TIMEOUT ]; do
     TIME=$(expr $TIME + 1)
     sleep 60
   else
-   echo
-   echo "Provision Status: $PROVISION_STATUS"
-   echo "Provision Result: $PROVISION_RESULT"
-   date
-   PREV_STATUS=$PROVISION_STATUS
-   echo "Timeout timer reset."
-   TIME="0"
-   sleep 60
+    echo
+    echo "Provision Status: $PROVISION_STATUS"
+    echo "Provision Result: $PROVISION_RESULT"
+    date
+    PREV_STATUS=$PROVISION_STATUS
+    echo "Timeout timer reset."
+    TIME="0"
+    sleep 60
   fi
 done
 if [[ $TIME -eq $TIMEOUT ]]; then
@@ -235,26 +235,25 @@ if [[ $TIME -eq $TIMEOUT ]]; then
   exit 1
 fi
 
-
 JOB_HOSTNAME=""
 if [[ $TOTAL_HOSTS > 0 ]]; then
-    for i in `seq 1 $TOTAL_HOSTS`; do
-        NAME=`xmlstarlet sel -t -v //recipe[$i]/@system job-result`
+    for i in $(seq 1 $TOTAL_HOSTS); do
+        NAME=$(xmlstarlet sel -t -v //recipe[$i]/@system job-result)
         if [[ -z $JOB_HOSTNAME ]]; then
             JOB_HOSTNAME="${NAME}"
-        else
+    else
             JOB_HOSTNAME="${JOB_HOSTNAME}:${NAME}"
-        fi
+    fi
         echo "HOSTNAME = $NAME - https://beaker.engineering.redhat.com/view/$NAME"
-    done
+  done
 else
-    JOB_HOSTNAME=`xmlstarlet sel -t -v //recipe/@system job-result`
+    JOB_HOSTNAME=$(xmlstarlet sel -t -v //recipe/@system job-result)
     echo "HOSTNAME = $JOB_HOSTNAME - https://beaker.engineering.redhat.com/view/$JOB_HOSTNAME"
 fi
 rm -Rf hostname
 echo $JOB_HOSTNAME > hostname
 
-DISTRO=`xmlstarlet sel -t --value-of "//recipe/@distro" job-result`
+DISTRO=$(xmlstarlet sel -t --value-of "//recipe/@distro" job-result)
 echo $DISTRO
 echo $DISTRO > distro
 
