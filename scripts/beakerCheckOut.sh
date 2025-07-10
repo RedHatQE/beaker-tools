@@ -18,6 +18,7 @@ function usage()
 {
 cat << USAGETEXT
 This script will reserve a beaker box using bkr workflow-simple.
+Note: Do NOT pass --task=/distribution/reservesys as an argument to this script.  It is automatically included.
 
 Available options are:
   --debugxml                                 Preforms a dryrun and prints out the job xml
@@ -25,7 +26,8 @@ Available options are:
   --ignore-avc-error                         Ignores SELinux AVC errors
   --kspackage=PACKAGE or @GROUP or -@GROUP   Package or group to include/exclude during the kickstart
   --recipe_option=RECIPE_OPTION              Adds RECIPE_OPTION to the <recipe> section
-  --timeout=TIMEOUT                          The timeout in minutes to wait for a beaker box (default: 180)
+  --timeout=MINUTES                          The timeout in minutes to wait for a beaker box (default:180 =3hours)
+  --reservetime=SECONDS                      Return the system SECONDS after being reserved (default:86400 =24hours)
 
 The following options are avalable to bkr workflow-simple:
 $(bkr workflow-simple --help | tail -n +3 | grep -v "\-\-help")
@@ -41,9 +43,9 @@ PASSWORD=""
 ROPTS=""
 TASKS=""
 TIMEOUT="180"
+RESERVETIME="" # the Beaker default is 86400 =24hours
 TOTAL_HOSTS=0
 USERNAME=""
-
 
 for arg do
   shift
@@ -57,6 +59,9 @@ for arg do
         ;;
       --timeout=*)
         TIMEOUT=${arg//--timeout=/}
+        ;;
+      --reservetime=*)
+        RESERVETIME=${arg//--reservetime=/}
         ;;
       --username=*)
         USERNAME=$arg
@@ -104,8 +109,9 @@ done
 set -- "$@" "--task=/distribution/reservesys"
 set -- "$@" "--install=beakerlib"
 
-#debug stuff
+# debug stuff
 if [[ $DEBUGXML == true ]]; then
+echo -e "\n==== ARGS ============================================="
 cat << DEBUG
 args: $@
 IGNORE_AVC_ERROR: $IGNORE_AVC_ERROR
@@ -115,73 +121,70 @@ PASSWORD: $PASSWORD
 ROPTS: $ROPTS
 TASKS: $TASKS
 TIMEOUT: $TIMEOUT
+RESERVETIME: $RESERVETIME
 TOTAL_HOSTS: $TOTAL_HOSTS
 USERNAME: $USERNAME
 DEBUG
 fi
 
+# do a dryrun through bkr workflow-simple saving the intial xml in file bkrjob.xml
 bkr workflow-simple "$@" --dryrun --debug --prettyxml > bkrjob.xml
 
 # all reservations should now be using this job, this requires latest beaker-client
 DIST_JOB_FMT="check-install"
 
-## turning off selinux during install
-##  adds --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
-if [[ $IGNORE_AVC_ERROR == true ]]; then
-  xmlstarlet ed -L -s "/job/recipeSet/recipe/task[@name='/distribution/$DIST_JOB_FMT']" -t elem -n params -v foobar bkrjob.xml
-  sed -i -e 's/foobar/<param name="AVC_ERROR" value="+no_avc_check"\/>/g' bkrjob.xml
+# modify the bkrjob.xml with argument values from beakerCheckOut.sh
+if [[ $IGNORE_AVC_ERROR == true ]]; then # turn off selinux during install
+    # add --taskparam=AVC_ERROR=+no_avc_check  to /distribution/install task
+    xmlstarlet ed -L -s "/job/recipeSet/recipe/task[@name='/distribution/$DIST_JOB_FMT']" -t elem -n params -v foobar bkrjob.xml
+    sed -i -e 's/foobar/<param name="AVC_ERROR" value="+no_avc_check"\/>/g' bkrjob.xml
 fi
-
-if [[ -z $KSPKGS ]] && [[ -z $ROPTS ]]; then
-  xmlstarlet fo bkrjob.xml
-  if [[ $DEBUGXML == false ]]; then
-    bkr workflow-simple "$@" > job || (echo "bkr workflow-simple $@" && cat job && rm bkrjob.xml && exit 1)
-  fi
-else
-  if [[ -n $KSPKGS ]]; then
+if [[ -n $KSPKGS ]]; then                # add --kspackage values
     sed -i -e s/"<\/distroRequires>"/"<\/distroRequires> <packages> $(echo $KSPKGS) <\/packages>"/g bkrjob.xml
-  fi
-  if [[ -n $ROPTS ]]; then
+fi
+if [[ -n $ROPTS ]]; then                 # add --recipe_option values
     sed -i -e s/"<recipe "/"<recipe $(echo $ROPTS) "/g bkrjob.xml
-  fi
-  xmlstarlet fo bkrjob.xml
-  if [[ $DEBUGXML == false ]]; then
-    bkr job-submit $USERNAME $PASSWORD bkrjob.xml > job || (rm bkrjob.xml && exit 1)
-  fi
 fi
+if [[ -n $RESERVETIME ]]; then           # add a --reservetime
+    sed -i -E s/"(<task name=\"\/distribution\/reservesys\" role=\"STANDALONE\">)"/"\1 <params> <param name=\"RESERVETIME\" value=\"$(echo $RESERVETIME)\"\/> <\/params>"/g bkrjob.xml
+fi
+sed -i /"^ *<params\/>"/d bkrjob.xml     # delete lines with empty <params/>
+echo -e "\n==== JOB XML =========================================="
+xmlstarlet fo bkrjob.xml
 
-rm bkrjob.xml
-
+# if debugging, show the modified bkrjob.xml and exit
 if [[ $DEBUGXML == true ]]; then
-  exit 0
+    rm bkrjob.xml
+    exit 0
 fi
 
-echo "===================== JOB DETAILS ================"
-echo "bkr workflow-simple $@"
-cat job
-echo "===================== JOB DETAILS ================"
+# submit bkrjob.xml to beaker
+bkr job-submit $USERNAME $PASSWORD bkrjob.xml > job || (rm bkrjob.xml && exit 1)
 JOB=`cat job | cut -d \' -f 2`
-
-echo "===================== JOB ID ================"
-echo "${JOB} - https://beaker.engineering.redhat.com/jobs/${JOB:2}"
-echo "===================== JOB ID ================"
-
-# had a instance where beaker returned 'bkr.server.bexceptions.BX:u' but the script just continued, trying to prevent that in the future - DJ-110415
-# now checking for a valid number after dropping 'j:'
+# had a instance where beaker returned 'bkr.server.bexceptions.BX:u' but the script just continued,
+# trying to prevent that in the future - DJ-110415
+# check JOB for a valid number following 'j:'
 if ! [[ ${JOB:2} =~ ^[0-9]+$ ]] ; then
    echo "error: job (${JOB}) doesn't appear to be valid"; exit 1
 fi
 
+echo -e "\n==== JOB DETAILS ======================================"
+echo "bkr workflow-simple $@"
+
+echo -e "\n==== JOB ID ==========================================="
+cat job # Submitted: ['J:11363484']
+echo "https://beaker.engineering.redhat.com/jobs/${JOB:2}"
+echo "To cancel: bkr job-cancel $USERNAME $PASSWORD ${JOB}"
+
+echo -e "\n==== PROVISION STATUS ================================="
+echo "Timeout: $TIMEOUT minutes"
+TIME="0"
+PREV_STATUS="Hasn't Started Yet."
 PASS_STRING="Pass"
 if [[ $TOTAL_HOSTS > 0 ]]; then
     MAX=`expr $TOTAL_HOSTS + 1`
     PASS_STRING=`seq -s "Pass" $MAX | sed 's/[0-9]//g'`
 fi
-
-echo "===================== PROVISION STATUS ================"
-echo "Timeout: $TIMEOUT minutes"
-PREV_STATUS="Hasn't Started Yet."
-TIME="0"
 while [ $TIME -lt $TIMEOUT ]; do
   bkr job-results $JOB $USERNAME $PASSWORD > job-result || (echo "Could not create job-result." && exit 1)
 
@@ -231,7 +234,6 @@ if [[ $TIME -eq $TIMEOUT ]]; then
   bkr job-cancel $JOB $USERNAME $PASSWORD
   exit 1
 fi
-echo "===================== PROVISION STATUS ================"
 
 
 JOB_HOSTNAME=""
@@ -256,8 +258,9 @@ DISTRO=`xmlstarlet sel -t --value-of "//recipe/@distro" job-result`
 echo $DISTRO
 echo $DISTRO > distro
 
+echo -e "\n==== TASK STATUS ======================================"
 for TASK in $TASKS; do
-  echo "===================== $TASK STATUS ================"
+  echo "==== TASK $TASK"
   PREV_STATUS="Hasn't Started Yet."
   while [ true ]; do
     bkr job-results $JOB $USERNAME $PASSWORD > job-result
@@ -301,5 +304,4 @@ for TASK in $TASKS; do
     fi
   done
   echo
-  echo "===================== $TASK STATUS ================"
 done
