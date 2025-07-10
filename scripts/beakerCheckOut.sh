@@ -294,7 +294,6 @@ for TASK in $TASKS; do
       echo -n "."
       sleep 60
     else
-      echo
       echo "Task Status: $TASK_STATUS"
       echo "Task Result: $TASK_RESULT"
       date
